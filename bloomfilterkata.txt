@@ -1,0 +1,62 @@
+Bloom Filters Kata:
+
+End Result Planned:
+        - Bloom Filter Class with load(_key) and query(_key) methods
+        - set_active_hashes_count which uses some or all the available hash functions
+        - metric for calculating optimal active hash count (k) given key count and bitarr size
+        - set_bitarray_size
+
+
+I need:
+
+1: Direct dictionary access:
+        + to generate my bloom filter
+        - Read the dictionary into memory
+        - Scan the file one line at a time
+        : NTK C++ efficient file access
+
+2: k hash functions:
+        + literally functions, with pointers, in an array or list
+        - Create array of function pointers
+        - Implement a number of hash functions
+        : NTK function pointers
+        : NTK variety of hash functions
+
+3: Bit Array (class):
+        + either a class or an array.
+        + Class usage: bitarr.set_on(hash(key_val))
+        + Array usage: arr = arr | tobit(hash(key_val))
+        + tobit(val) := 1 << val
+
+4: To know which characters are valid in the dictionary, and what order nonstandard characters are sorted in: for example, the apostrophe.
+
+5: Direct dictionary access membership checker
+        + for final testing stage
+        - Scan through file line by line until match?
+        - Load dictionary into memory? => Dictionary size, memory requirements
+
+
+Program Flow:
+
+// Setup
+Calculate key count n from direct dictionary access.
+Pick bitarray length m and optimal (or sub-optimal) hash key count k.
+
+// Initialization
+Instantiate Bloom Filter class (contains Bit Array class).
+For every dictionary entry, load it into the Bloom Filter.
+
+// Test usage
+Test a random sample of valid entries for membership. Report result.
+
+Generate a set of invalid entries.
+Test a sample of invalid entries for membership. Report results.
+
+Generate random combinations, test for membership using bloom filter.
+        If it passes, test for membership using direct dictionary access
+        Report false positives count with any other interesting statistics.
+
+Done.
+
+
+
