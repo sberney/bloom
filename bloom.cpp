@@ -214,7 +214,9 @@ std::string RandomLineAccess::getline(int line_number)
 }
 
 // True if `value` is in RandomLineAccess's dictionary file. This implementation
-// tests every line in the dictionary (what an awful thing to do!)
+// tests every line in the dictionary (what an awful thing to do!) A better way
+// is to reimplement RandomLineAccess with a sparse index and associated values
+// kept in memory. Then a binary search (if sorted) would be really fast!
 bool RandomLineAccess::query(std::string value)
 {
         int current_line = 0;
@@ -318,8 +320,10 @@ std::string mutateString(std::string input)
 
         // makes sure the string has changed
 
-        while(input == mutated)
-                mutated += randomWord(10);
+        //while(input == mutated /* and not in dictionary
+        //                          (else 5 match training input) */)
+        //        mutated += randomWord(10);    // for SLOW functionality
+        mutated += randomWord(10);
 
         return mutated;
 }

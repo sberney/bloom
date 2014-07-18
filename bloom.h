@@ -66,9 +66,15 @@
  ** FUTURE DIRECTIONS
  * This project needs an enhanced user interface. It needs better data
  * presentation and a way to change settings without recompiling the program.
+ *  * test functions can return a table object, which prints afterwards
+ *  * can make interactive or create parameters file
  *
  * RandomLineAccess::query() needs to be changed to a more efficient solution:
- * current implementation is a last minute addition.
+ * current implementation is a last minute addition to check if any mutated
+ * entries (testInvalidEntries) are still in the training dictionary.
+ *  * can implement binary search if check ordered at RandomLineAccess
+ *    construction. Would integrate well with a sparse implementation of
+ *    RandomLineAccess. Can store sparse values in memory to speed search.
  *
  ** ACKNOWLEDGEMENTS FOR ALL THIRD PARTY FUNCTIONS
  * Two functions and a macro from third parties were used in this demonstration:
