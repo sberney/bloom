@@ -1,12 +1,45 @@
+/*******************************************************************************
+ * Bloom Filter demonstration
+ * Copyright 2014 Samuel Berney
+ *
+ * This project demonstrates an implementation of a Bloom Filter. For more
+ * information about Bloom Filters, read the comment block above the BloomFilter
+ * class below. The problem statement (create a Bloom Filter that can store
+ * a large dictionary) was found at codekata.com/kata/kata05-bloom-filters/.
+ *
+ * This Bloom Filter requires a training dictionary. This dictionary is required
+ * to be a text file with a single word per line. Any whitespace will be
+ * considered a part of a word. The longest word allowed depends on system
+ * hardware and can be found in the following way:
+ *  std::string str = "anything";
+ *  std::cout << str.max_size() << std::endl;
+ * It is the user's responsibility to ensure that all lines in the training
+ * dictionary do not exceed this limit (which is ridiculously large);
+ * you are likely to run out of memory if operating in this regime.
+ *
+ * Two functions and a macro from third parties were used in this demonstration:
+ * Hash functions djb2 and sdbm (http://www.cse.yorku.ca/~oz/hash.html), as
+ * well as the DISALLOW_COPY_AND_ASSIGN macro
+ * (http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml).
+ *
+ * This project was compiled and tested using
+ *  g++ (GCC) 4.7.4 20130416 for GNAT GPL 2013 (20130314) on Mac OS X
+*******************************************************************************/
+
 #include <iostream>     /* cout, ios_base::failure */
 #include <fstream>      /* ifstream, getline */
 #include <string>       /* string */
 #include <cstdlib>      /* rand, srand */
+#include <ctime>        /* time */
 #include <vector>       /* vector<bool> */
 #include <tr1/functional>   /* hash<std::string>. Macintosh specific? */
+#include <limits>       /* numeric_limits */
+#include <cmath>        /* floor */
+#include <stdexcept>    /* invalid_argument */
 
 #ifndef BLOOM_H_
 #define BLOOM_H_
+
 
 // This single macro is borrowed straight from Google's style guide:
 // A macro to disallow the copy constructor and operator= functions
@@ -18,26 +51,40 @@
 
 /****** typedefs ******/
 
-typedef int hash;                           // Return type for hash functions.
+typedef unsigned long hash;                 // Return type for hash functions.
 typedef hash (*HashFunction)(std::string);  // Function pointer to functions
                                             // of form: hash fxn(string).
+const hash MAX_HASH = std::numeric_limits<hash>::max();
+
 
 /****** Forward Declarations ******/
 
 class BloomFilter;
 
-// Counts lines ("words") in file named DICTIONARY_FILE.
+// Counts lines ("words") in file named dictionary_file. (a convenience)
 int countWordsInDictionary(const char* DICTIONARY_FILE);
 
+// Returns a random ascii character in the range ['A', '~').
+const char randomChar();
+
+// Returns a random string with specified length. Word is composed of characters
+// returned by const char randomChar().
+std::string randomWord(int length);
+
+// Changes a string in a somewhat random way.
+std::string mutateString(std::string input);
+
 // Obtains sample_size random entries from DICTIONARY FILE. Tests each entry
-// for membership using BloomFilter bloom. Returns string array of obtained
-// dictionary entries. For each entry not recognized by the bloom filter, a
-// slot at the end of the returned array will contain "bloom failure".
+// for membership using BloomFilter bloom. Creates string array of obtained
+// dictionary entries and modifies valid_entries to point to it. For each
+// entry not recognized by the bloom filter, a slot at the end of the returned
+// array will contain "bloom failure".
 //
-// It is the user's responsibility to delete the returned string array.
-std::string* testValidEntries(const char*   DICTIONARY_FILE,
-                              int           sample_size,
-                              BloomFilter*  bloom);
+// It is the user's responsibility to delete[] valid_entries.
+void testValidEntries(const char*   DICTIONARY_FILE,
+                      int           sample_size,
+                      BloomFilter*  bloom,
+                      std::string*  valid_entries);
 
 // Generates sample_size invalid entries based on input valid_entries.
 // Tests each invalid entry for membership using BloomFilter bloom.
@@ -49,9 +96,12 @@ void testInvalidEntries(std::string*    valid_entries,
 // is tested for membership using BloomFilter bloom.
 void testRandomPermutations(int sample_size, BloomFilter* bloom);
 
-// Changes a string in a somewhat random way.
-std::string mutateString(std::string input);
+// Loads contents of a dictionary file into the Bloom Filter.
+void train(const char* dictionary_file, BloomFilter* bloom);
 
+// Runs a series of tests on the input Bloom Filter (testValidEntries,
+// testInvalidEntries, and testRandomPermutations).
+void test(const char* dictionary_file, BloomFilter* bloom, int sample_size);
 
 /****** Class Contracts *****/
 
@@ -61,15 +111,16 @@ std::string mutateString(std::string input);
 // must be updated whenever a new hash function is added.
 //      Example usage:
 //          std::cout << HashMonster::hash1("hello world");
+// Hash function origins (I didn't create them) are noted at their definitions.
 class HashMonster
 {
         public:
                 static const int hashFunctionCount = 3;
                 static HashFunction hashFunctions[hashFunctionCount];
 
-                static hash builtIn(std::string);
-                static hash hash1(std::string);
-                static hash hash2(std::string);
+                static hash builtIn(std::string key);
+                static hash djb2(std::string key);
+                static hash sdbm(std::string key);
         protected:
                 HashMonster();  // Disallows instantiation
         private:
@@ -92,14 +143,13 @@ class HashMonster
 class BloomFilter
 {
         public:
-                BloomFilter(int bitarray_length, int active_hashes_count)
-                        : bitArray(bitarray_length, false),
-                          active_hashes_count(active_hashes_count) {}
-                bool load(std::string);
+                BloomFilter(int bitarray_length, int active_hashes_count);
+                void load(std::string);
                 bool query(std::string);
         private:
-                std::vector<bool> bitArray;
-                int active_hashes_count;
+                std::vector<bool> bitarray;
+                int active_hashes_count_;
+                hash bitarray_length_;
                 DISALLOW_COPY_AND_ASSIGN(BloomFilter);
 };
 

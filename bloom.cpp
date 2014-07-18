@@ -1,55 +1,130 @@
 #include "bloom.h"
 
 HashFunction HashMonster::hashFunctions[HashMonster::hashFunctionCount] = {
-        HashMonster::builtIn,   HashMonster::hash1, HashMonster::hash2
+        HashMonster::builtIn,   HashMonster::djb2, HashMonster::sdbm
 };
 
 hash HashMonster::builtIn(std::string key)
 {
         std::tr1::hash<std::string> str_hash;
-        return str_hash(key);
+        return (hash) str_hash(key);
 }
 
-hash HashMonster::hash1(std::string key)
+// djb2 by Dan Bernstein
+// http://www.cse.yorku.ca/~oz/hash.html
+hash HashMonster::djb2(std::string key)
 {
-        return 10;
+        const unsigned char* str = reinterpret_cast<const unsigned char*>(key.c_str());
+        hash local_hash = 5381;
+        int c;
+
+        while (c = *str++)
+                local_hash = ((local_hash << 5) + local_hash) + c; /* local_hash * 33 + c */
+
+        return local_hash;
 }
 
-hash HashMonster::hash2(std::string key)
+// sdbm (public domain, used in gawk)
+// http://www.cse.yorku.ca/~oz/hash.html
+hash HashMonster::sdbm(std::string key)
 {
-        return 11;
+        const unsigned char* str = reinterpret_cast<const unsigned char*>(key.c_str());
+        hash local_hash = 0;
+        int c;
+
+        while (c = *str++)
+                local_hash = c + (local_hash << 6) + (local_hash << 16) - local_hash;
+
+        return local_hash;
 }
 
-// Store key value in Bloom Filter.
-bool BloomFilter::load(std::string key)
+// If user specified bitarray_length or active_hashes_count are larger
+// than allowed for by the nature and number of implemented hash functions,
+// the constructor creates a Bloom Filter with the maximum largest
+// bitarray_length and/or active_hashes_count possible and notifies the user.
+BloomFilter::BloomFilter(int bitarray_length, int active_hashes_count)
+                : bitarray(bitarray_length, false),
+                  bitarray_length_(bitarray_length),
+                  active_hashes_count_(active_hashes_count)
 {
-        return false;
+        // 
+        if(bitarray_length > MAX_HASH)
+        {
+                std::cout << "Supplied bit array length " << bitarray_length
+                          << " is longer than the maximum allowed "
+                          << MAX_HASH << " bits. Using the maximum length."
+                          << std::endl;
+                bitarray_length_ = MAX_HASH;
+        }
+
+        if(bitarray_length_ == 0)
+                throw std::invalid_argument("A Bit Array is required to have at least one bit.");
+
+        if(active_hashes_count_ > HashMonster::hashFunctionCount)
+        {
+                std::cout << "Supplied hash function count "
+                          << active_hashes_count_ << " is larger than "
+                          << HashMonster::hashFunctionCount
+                          << ", the number of hash functions implemented. "
+                          << "Using all hash functions instead." << std::endl;
+        }
+
+        if(active_hashes_count_ == 0)
+                throw std::invalid_argument("A Bloom Filter requires at least one hash function to operate.");
+
+        return;
 }
 
-// Test value's membership using bloom filter
+// Iterates through hash function list to find and set bits associated with key.
+void BloomFilter::load(std::string key)
+{
+        // for each hash, set relevant bits
+
+        for(int i = 0; i < active_hashes_count_; ++i)
+        {
+                hash hash_index = HashMonster::hashFunctions[i](key) %
+                                                        bitarray_length_;
+                bitarray[hash_index] = true;
+        }
+}
+
+// Iterates through hash function list to check if bits associated with the key
+// (via the hash function) are set. If any bit is not set, query returns false.
 bool BloomFilter::query(std::string value)
 {
-        return false;
+        bool is_member = true;
+        for(int i = 0; i < active_hashes_count_; ++i)
+        {
+                hash hash_index = HashMonster::hashFunctions[i](value) %
+                                                        bitarray_length_;
+                if(bitarray[hash_index] == false)
+                        is_member = false;
+        }
+
+        return is_member;
 }
 
-
 // Open file; and create mapping between line number and binary position in file.
+// Creates an array containing the binary position of each line in
+// DICTIONARY_FILE. If the file can't be opened, the constructor throws an error
+// and terminates the program. The dictionary will remain open until the class
+// destructor is called. Also allows subsequent use of .getLineCount() to all
+// other methods and functions, but .getLineCount() CANNOT be used in this
+// constructor.
 RandomLineAccess::RandomLineAccess(const char* DICTIONARY_FILE) : dictionary_file(DICTIONARY_FILE)
 {
-        // Test whether the file was opened or not. If the file can't be opened,
-        // this program has to terminate. Otherwise, we extract its contents
+        // Tests whether the file was opened or not. Either terminates (if the
+        // file can't be opened) or builds an index to the file's contents.
 
-        if(dictionary_file)
-        {
-                line_count = countLines(&dictionary_file);
-        }
-        else
+        if(!dictionary_file)
         {
                 throw std::ios_base::failure(
                                 std::string("Could not open file ") +
                                 DICTIONARY_FILE
                                 );
         }
+
+        line_count = countLines(&dictionary_file);
 
         // binary-position-of-line is a mapping from Line Number to where that
         // line begins in the dictionary file. It allows usage:
@@ -73,6 +148,8 @@ RandomLineAccess::RandomLineAccess(const char* DICTIONARY_FILE) : dictionary_fil
         return;
 }
 
+// Closes the dictionary and frees up the space formerly allocated to
+// RandomLineAccess's index onto the dictionary.
 RandomLineAccess::~RandomLineAccess()
 {
         dictionary_file.close();
@@ -80,7 +157,9 @@ RandomLineAccess::~RandomLineAccess()
         return;
 }
 
-// Count lines in any open ifstream (passed by reference).
+// Counts lines in any open ifstream [passed by reference] by resetting any
+// bad bits (eofbit, badbit, failbit) and reading through the file line by
+// line. ifstream shall still be usable after countLines finishes with it.
 int RandomLineAccess::countLines(std::ifstream* file_name)
 {
         std::string line;           // std::getline() populates this string
@@ -91,26 +170,27 @@ int RandomLineAccess::countLines(std::ifstream* file_name)
 
         file_name->clear();
 
-        // Count and return lines in file.
+        // Counts and returns lines in file.
 
         file_name->seekg(0);
         while(std::getline((*file_name), line))
-        {
                 loc_line_count++;
-        }
 
-        file_name->clear();         // Reset stream's eofbit to false
+        file_name->clear();         // Resets stream's eofbit to false
         return loc_line_count;
 }
 
-// Return the number of lines cached by RandomLineAccess.
-// DO NOT USE in RandomLineAccess's constructor (line_count not yet set).
+// An accessor for RandomLineAccess's private variable line_count. line_count
+// is set by the constructor.
 int RandomLineAccess::getLineCount() const
 {
         return line_count;
 }
 
-// Retrieve line contents located at line_number in dictionary_file.
+// Returns the contents of line number line_number in the file indexed by
+// RandomLineAccess. Seeks to location as stated in index. Resets eofbit only
+// as necessary, which is fine unless another method is added to RandomLineAccess
+// which expects goodbit pre-set.
 std::string RandomLineAccess::getline(int line_number)
 {
         std::string line;       // std::getline() populates this string
@@ -126,8 +206,8 @@ std::string RandomLineAccess::getline(int line_number)
         return line;
 }
 
-
-// Open dictionary, obtain word count
+// Tries to open the file DICTIONARY_FILE. Uses RandomLineAccess::countLines
+// to obtain a line count before closing the file.
 int countWordsInDictionary(const char* DICTIONARY_FILE)
 {
         std::ifstream dictionary(DICTIONARY_FILE);
@@ -137,15 +217,142 @@ int countWordsInDictionary(const char* DICTIONARY_FILE)
         return word_count;
 }
 
-// Open dictionary, obtain sample_size random entries, test membership;
-// return string array of random entries. any failures shall read "bloom failure":
-// REMEMBER TO DELETE the dynamically allocated returned string array.
-std::string* testValidEntries(const char*   DICTIONARY_FILE,
-                              int           sample_size,
-                              BloomFilter*  bloom)
+// Uses rand() to select an ascii character in the range ['A', '~').
+const char randomChar()
 {
-        // Open dictionary, prepare to obtain sample_size # of random entries:
+        return 'A' + rand() % ('~' - 'A');
+}
 
+// Creates a char[] of the required length, populates it with characters
+// selected by randomChar(), and adds a '\0' for good measure before converting
+// to and returning std::string.
+std::string randomWord(int length)
+{
+        char* new_word = new char[length + 1];
+        std::string finished_word;
+
+        for(int j = 0; j < length; ++j)
+                new_word[j] = randomChar();
+        new_word[length] = '\0';
+
+        finished_word = (std::string) new_word;
+        delete[] new_word;
+        return finished_word;
+}
+
+// Ensures that a mutation (insertion, deletion, in-place mutation) occurs
+// to the input string. Uses probabilities in conjunction with rand() to
+// randomize the way in which the input string is mutated. If the probabilistic
+// randomization fails, a random string is added on the end of the word until
+// the mutated string is different from the input string. mutateString() always
+// makes sure not to modulo by zero and to use int cast along with floor or ceil
+// to reliably and controllably convert floating point numbers into integers.
+std::string mutateString(std::string input)
+{
+        const float char_mutation_rate = 0.3;
+        const float p_shorten_word = 0.9;
+        const float max_deletion_rate = 0.7;
+        const float p_extend_word = 1.0;
+        const float max_extension_rate = 0.5;
+
+        // mutates existing characters
+
+        std::string mutated = input;
+        for(int i = 0; i < mutated.length(); ++i)
+        {
+                if(rand() % 100 < char_mutation_rate)
+                        mutated[i] = randomChar();
+        }
+
+        // deletes characters
+
+        if(rand() % 100 < 100 * p_shorten_word &&
+                                        mutated.length() > 0)
+        {
+                int max_deletions = (int) std::floor(mutated.length() *
+                                                     max_deletion_rate);
+                if(max_deletions > 0)
+                {
+                        int num_deletions = rand() % max_deletions;
+                        for(int i = 0; i < num_deletions; ++i)
+                        {
+                                // There must be characters in mutated to
+                                // delete if we're here. max_deletions already
+                                // takes mutated.length() into account.
+
+                                int delpos = rand() % mutated.length();
+                                mutated.erase(delpos, 1);   // erase one letter
+                        }
+                }
+        }
+
+        // inserts new characters
+
+        if(rand() % 100 < 100 * p_extend_word)
+        {
+
+                int max_insertions = (int) std::ceil(input.length() *
+                                                     max_extension_rate);
+                if(max_insertions == 0)
+                        max_insertions = 10;
+
+                int num_insertions = rand() % max_insertions;
+                for(int i = 0; i < num_insertions; ++i)
+                {
+                        if(mutated.length() == 0)
+                                mutated.insert(0, randomWord(1));
+                        else
+                                mutated.insert(rand() % mutated.length(),
+                                               randomWord(1));
+                }
+        }
+
+        // makes sure the string has changed
+
+        while(input == mutated)
+                mutated += randomWord(10);
+
+        return mutated;
+}
+
+// Creates a new string based for each string in valid_entries based off
+// that string. testInvalidEntries uses mutateString() to ensure that each
+// new string is almost certainly not in the dictionary. The function tests
+// each new string against the Bloom Filter.
+void testInvalidEntries(std::string*    valid_entries,
+                        int             sample_size,
+                        BloomFilter*    bloom)
+{
+        int successes = 0;      // incremented each time the bloom
+                                // filter recognizes the dictionary entry
+
+        for(int i = 0; i < sample_size; ++i)
+        {
+                // mutate sample and test membership
+
+                valid_entries[i] = mutateString(valid_entries[i]);
+
+                if(bloom->query(valid_entries[i]))
+                        successes++;
+        }
+
+        std::cout << "Invalid Entries:\t" << successes << " / " << sample_size
+                  << " tested positive." << std::endl;
+        return;
+}
+
+// Queries random lines in DICTIONARY_FILE. Each line is tested against the
+// Bloom Filter and added to the valid_entries array (which must be created
+// and deleted outside of testValidEntries and will be modified by
+// testValidEntries). This requires that the dictionary file contain
+// an entry. If for some reason the Bloom Filter does not recognize a training
+// key, the user is notified and an entry at the end of valid_entries is set to
+// "bloom failure".
+void testValidEntries(const char*   DICTIONARY_FILE,
+                      int           sample_size,
+                      BloomFilter*  bloom,
+                      std::string*  valid_entries)
+{
         RandomLineAccess dictionary(DICTIONARY_FILE);
 
         int successes = 0;      // incremented each time the bloom
@@ -153,15 +360,13 @@ std::string* testValidEntries(const char*   DICTIONARY_FILE,
         int failures = 0;       // incremented when bloom doesn't recognize entry
                                 // (should never ever happen)
 
-        std::string* valid_entries = new std::string[sample_size];
-                                // will record each sampled entry
-
         // obtain sample_size # of random entries:
 
-        for(int i = 0; i < sample_size; i++)
+        for(int i = 0; i < sample_size; ++i)
         {
+                if(dictionary.getLineCount() == 0)
+                        throw std::invalid_argument("No Valid Dictionary Entries to Test.");
                 int randint = rand() % dictionary.getLineCount();
-                std::cout << dictionary.getline(randint) << std::endl;
 
                 // test membership
 
@@ -180,7 +385,7 @@ std::string* testValidEntries(const char*   DICTIONARY_FILE,
 
         if(failures > 0)
         {
-                for(int i = successes; i < sample_size; i++)
+                for(int i = successes; i < sample_size; ++i)
                         valid_entries[i] = "bloom failure";
 
                 std::cerr << "Test testValidEntries failed " << failures
@@ -190,118 +395,112 @@ std::string* testValidEntries(const char*   DICTIONARY_FILE,
 
         // Announce successes to the User and return successes
 
-        std::cout << "Valid Entries: " << successes << " / " << sample_size
-                  << " tested positive." << std::endl;
-        return valid_entries;
-}
-
-// Changes a string in a somewhat random way.
-std::string mutateString(std::string input)
-{
-        std::string mutation = input + "not mutated yet";    // FIXME
-
-        return mutation;
-}
-
-// morph valid_entries into invalid entries, and test them against bloom filter.
-void testInvalidEntries(std::string*    valid_entries,
-                        int             sample_size,
-                        BloomFilter*    bloom)
-{
-        int successes = 0;      // incremented each time the bloom
-                                // filter recognizes the dictionary entry 
-
-        for(int i = 0; i < sample_size; i++)
-        {
-                // mutate sample and test membership
-
-                valid_entries[i] = mutateString(valid_entries[i]);
-
-                if(bloom->query(valid_entries[i]))
-                        successes++;
-        }
-
-        std::cout << "Invalid Entries: " << successes << " / " << sample_size
+        std::cout << "Valid Entries:\t\t" << successes << " / " << sample_size
                   << " tested positive." << std::endl;
         return;
 }
 
-// generate sample_size # of random five character words, & test their membership.
+// Uses randomWord() to generate sample_size # of five character words. Each
+// word is tested for membership in the Bloom Filter.
 void testRandomPermutations(int sample_size, BloomFilter* bloom)
 {
         int successes = 0;      // incremented each time the bloom
                                 // filter recognizes the dictionary entry 
+        const int word_length = 5;
+        char test_word[word_length];
 
-        for(int i = 0; i < sample_size; i++)
+        for(int i = 0; i < sample_size; ++i)
         {
-                // generate random five character word & test its membership
-
-                std::string test_word = "fixme";    // FIXME
-
-                if(bloom->query(test_word))
+                if(bloom->query(randomWord(5)))
                         successes++;
         }
 
-        std::cout << "5 letter random words: " << successes << " / "
+        std::cout << "5 chr random words:\t" << successes << " / "
                   << sample_size << " tested positive." << std::endl;
         return;
 }
 
-// Load dictionary into Bloom Filter, demonstrate filter's effectiveness.
-int main()
+// Opens a training dictionary and loads each entry into the Bloom Filter.
+void train(const char* dictionary_file, BloomFilter* bloom)
 {
-        // constants
-
-        const char DICTIONARY_FILE[] = "wordlist.txt";
-
-        /******* Setup *******/
-
-        srand(1984);    // random seed
-
-        // Find number of entries in input dictionary, "key_count".
-
-        int key_count = countWordsInDictionary(DICTIONARY_FILE);
-
-        // Choose parameters which change the efficacy of the bloom filter:
-        // The bitarray length and hash function count.
-
-        int bitarray_length = int(2 * key_count);
-        int hash_function_count = 1;
-
-        // Create bloom filter
-
-        BloomFilter bloom_filter(bitarray_length, hash_function_count);
-
-
-        /******* Initialization *******/
-
-        // For every dictionary entry, load it into the Bloom Filter
-
-        std::ifstream dictionary(DICTIONARY_FILE);
+        std::ifstream dictionary(dictionary_file);
         std::string line;
         while(std::getline(dictionary, line))
         {
-                bloom_filter.load(line);
+                bloom->load(line);
         }
         dictionary.close();
+}
 
-
-        /******* Test Usage *******/
-
-        // Test a random sample of valid entries for membership. Report result.
-
-        const int sample_size = 10;
-        std::string* valid_entries = testValidEntries(DICTIONARY_FILE,
-                        sample_size, &bloom_filter);
-
-        // Test a sample of invalid entries for membership. Report result.
-
-        testInvalidEntries(valid_entries, sample_size, &bloom_filter);
-
-        // Generate random combinations, and report false positive rate
-
-        testRandomPermutations(sample_size, &bloom_filter);
+// Tests a random sample of valid entries, a generated sample of
+// (almost certainly) invalid entries, and random strings for
+// membership using the bloom filter.
+void test(const char* dictionary_file, BloomFilter* bloom, int sample_size)
+{
+        std::string* valid_entries = new std::string[sample_size];
+                                        // will contain each sampled entry
+        testValidEntries(dictionary_file,          // training dictionary
+                         sample_size,              // # of words to test
+                         bloom,                    // bloom filter to test
+                         valid_entries);           // to populate w/ valid entries
+        testInvalidEntries(valid_entries,          // strings to modify
+                           sample_size,            // length of valid_entries
+                           bloom);                 // bloom filter to test
+        testRandomPermutations(sample_size, bloom);
 
         delete[] valid_entries;
+}
+
+// Creates and trains a Bloom Filter and computes its effectiveness using
+// a number of tests; repeatedly for different flavors of Bloom Filter,
+// by iteratively changing the number of hash functions (hashcount) used as
+// well as the length of the bitarray relative to the size of the training
+// dictionary (lenfact).
+//
+// According to http://pages.cs.wisc.edu/~cao/papers/summary-cache/node8.html,
+// hashcount < 3 is required for lenfact == 2. Further constraints on
+// hashcount as a function of lenfact exist, however only three hash functions
+// are currently implemented. Thus we iterate lenfact from 3 on upwards. This
+// is simply a convenient thing to do; other values could've been selected.
+//
+// Seeds the random number generator with the system time.
+int main()
+{
+        // Demonstration Parameters
+
+        const int random_seed = std::time(NULL);
+        const char DICTIONARY_FILE[] = "wordlist.txt";  // The location of the
+                                                        // training dictionary.
+        const int sample_size = 100;            // # of words to test using
+                                                // the Bloom Filter.
+
+
+        int key_count = countWordsInDictionary(DICTIONARY_FILE);
+
+        // Bit array length shall be lenfact multiples of the dictionary length.
+        for(int lenfact = 3; lenfact < 8; ++lenfact)
+        {
+                int bitarray_length = int(lenfact * key_count);
+
+                // Bloom Filter shall use hashcount # of hash functions.
+                for(int hashcount = 1;
+                    hashcount <= HashMonster::hashFunctionCount;
+                    ++hashcount)
+                {
+                        std::cout << "lenfact (m/n) = " << lenfact << std::endl
+                                  << "hashcount (k) = " << hashcount << std::endl;
+
+                        // Creates, trains, and tests Bloom Filter
+
+                        BloomFilter bloom_filter(bitarray_length, hashcount);
+                        train(DICTIONARY_FILE, &bloom_filter);
+
+                        srand(random_seed);
+                        test(DICTIONARY_FILE, &bloom_filter, sample_size);
+
+                        std::cout << std::endl;
+                }
+        }
+
         return 0;
 }
