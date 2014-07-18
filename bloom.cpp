@@ -13,7 +13,7 @@ HashFunction HashMonster::hashFunctions[HashMonster::hashFunctionCount] = {
 
 hash HashMonster::builtIn(std::string key)
 {
-        std::tr1::hash<std::string> str_hash;
+        std::tr1::hash<std::string> str_hash;   // On *nix and VS2010
         return (hash) str_hash(key);
 }
 
@@ -460,14 +460,17 @@ int countKeysAndVerifyDictionaryBigEnough(const char* DICTIONARY_FILE,
         {
                 std::cout << "Training dictionary not detected! "
                              "You can download one from\n"
-                             "\thttp://codekata.com/data/wordlist.txt .\n\n"
+                             "\t(windows)\tsamuelberney.com/wordlist.txt\n"
+                             "\t(*nix)\t\tcodekata.com/data/wordlist.txt\n\n"
                              "Ensure the file is located in the "
                              "same directory as this program,\nand "
                              "that it is named wordlist.txt (or "
                              "that you've changed\n`const char DICTIONARY_FILE[]` "
-                             "to the appropriate setting in main()).\n\n"
+                             "to the appropriate setting in main()).\n"
+                             "Ensure that the file has native line endings.\n\n"
                              "You can create your own training dictionary "
-                             "in a text file with one 'word' per line.\n\n";
+                             "in a text file with one 'word' per line.\n\n"
+                             "\tone\n\ttwo\n\tthree\n\n is sufficient.\n\n";
                 exit(-1);
         }
 

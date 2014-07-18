@@ -32,6 +32,24 @@
  * entries and a few random entries. False positives should reduce with
  * higher lenfact and hashcount.
  *
+ ** COMPILATION NOTES (SEE ALSO: KNOWN BUGS AND COMPILER IDS)
+ *  * Compiling using VS2010 works fine (even with line 163, see below.
+ *  * Compiling from command line (VS2010 sp1) required using /EHsc option and commenting
+ *    out line bloom.cpp:163 (after building with VS2010 gui, I could put line 163 back in)
+ *  * Compiling with g++, replace #include<functional> with #include<tr1/function>.
+ *
+ ** KNOWN BUGS
+ * * tellg()/getline()
+ *   * Symptoms: bloom filter does not recognize Valid Entries.
+ *   * Remedy: convert non-native line breaks to [Windows] (native) specific line returns.
+ *             https://kb.iu.edu/d/acux
+ *   * Description: Does not affect gnu c++ compiler. Cannot currently parse *nix text files
+ *     on Windows when compiled with VS2010. tellg() moves the cursor unnecessarily and
+ *     reports an incorrect location. When seeking to the saved locations, an offset is
+ *     introduced and getline() produces garbage. Every solution I found on the internet
+ *     involved opening the file in binary.
+ *   * Affects: RandomLineAccess::RandomLineAccess and RandomLineAccess::getline.
+ *
  ** ABSTRACT PROGRAM FLOW
  * SETUP
  *  Calculate dictionary word count directly from file.
@@ -50,7 +68,9 @@
  *
  ** ON BLOOM FILTERS AND USAGE
  * This Bloom Filter requires a training dictionary. Here is the preferred
- * dictionary for you to use: http://codekata.com/data/wordlist.txt. But you
+ * dictionary for you to use:
+ *            (windows formatting) samuelberney.com/wordlist.txt
+ *               (unix formatting) codekata.com/data/wordlist.txt. But you
  * can use any dictionary (like /usr/dict/words or /usr/share/dict/words) so
  * long as you are aware of the following formatting rules:
  *
@@ -62,6 +82,7 @@
  * It is the user's responsibility to ensure that all lines in the training
  * dictionary do not exceed this limit (which is ridiculously large);
  * you are likely to run out of memory if operating in this regime.
+ * You must use native line break endings (see KNOWN BUGS).
  *
  ** FUTURE DIRECTIONS
  * This project needs an enhanced user interface. It needs better data
@@ -82,8 +103,11 @@
  * well as the DISALLOW_COPY_AND_ASSIGN macro
  * (http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml).
  *
+ ** COMPILER IDS
  ** This project was compiled and tested using
  *   g++ (GCC) 4.7.4 20130416 for GNAT GPL 2013 (20130314) on Mac OS X
+ *   Microsoft (R) 32-bit C/C++ Optimizing Compiler Version 16.00.40219.01 for 80x86 with /EHsc
+ *   g++ (GCC) 4.8.3 for Target: x86_64-pc-cygwin
 *******************************************************************************/
 
 #include <iostream>     /* cout, ios_base::failure */
@@ -92,7 +116,8 @@
 #include <cstdlib>      /* rand, srand */
 #include <ctime>        /* time */
 #include <vector>       /* vector<bool> */
-#include <tr1/functional>   /* hash<std::string>. Macintosh specific? */
+//#include <tr1/functional>   /* hash<std::string>. g++ specific (Win, OS X) */
+#include <functional>   /* hash<std::string>. VS2010 specific **/
 #include <limits>       /* numeric_limits */
 #include <cmath>        /* floor */
 #include <stdexcept>    /* invalid_argument */
