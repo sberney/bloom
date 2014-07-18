@@ -1,3 +1,10 @@
+/*******************************************************************************
+ * Bloom Filter demonstration
+ * Copyright 2014 Samuel Berney
+ *
+ * Documentation and project outline available in bloom.h header file.
+*******************************************************************************/
+
 #include "bloom.h"
 
 HashFunction HashMonster::hashFunctions[HashMonster::hashFunctionCount] = {
@@ -206,17 +213,6 @@ std::string RandomLineAccess::getline(int line_number)
         return line;
 }
 
-// Tries to open the file DICTIONARY_FILE. Uses RandomLineAccess::countLines
-// to obtain a line count before closing the file.
-int countWordsInDictionary(const char* DICTIONARY_FILE)
-{
-        std::ifstream dictionary(DICTIONARY_FILE);
-        int word_count = RandomLineAccess::countLines(&dictionary);
-
-        dictionary.close();
-        return word_count;
-}
-
 // Uses rand() to select an ascii character in the range ['A', '~').
 const char randomChar()
 {
@@ -420,10 +416,52 @@ void testRandomPermutations(int sample_size, BloomFilter* bloom)
         return;
 }
 
-// Opens a training dictionary and loads each entry into the Bloom Filter.
-void train(const char* dictionary_file, BloomFilter* bloom)
+// Ensures enough entries are present in the training dictionary (and that
+// the training dictionary exists at all). Returns number of entries.
+int countKeysAndVerifyDictionaryBigEnough(const char* DICTIONARY_FILE,
+                                          const int sample_size)
 {
-        std::ifstream dictionary(dictionary_file);
+        // Makes sure training dictionary is present
+
+        std::ifstream dictionary(DICTIONARY_FILE);
+        if (!dictionary)
+        {
+                std::cout << "Training dictionary not detected! "
+                             "You can download one from\n"
+                             "\thttp://codekata.com/data/wordlist.txt .\n\n"
+                             "Ensure the file is located in the "
+                             "same directory as this program,\nand "
+                             "that it is named wordlist.txt (or "
+                             "that you've changed\n`const char DICTIONARY_FILE[]` "
+                             "to the appropriate setting in main()).\n\n"
+                             "You can create your own training dictionary "
+                             "in a text file with one word per line.\n\n";
+                exit(-1);
+        }
+
+        int key_count = RandomLineAccess::countLines(&dictionary);
+        dictionary.close();
+
+        // Notify user if too few words in training dictionary
+
+        if(key_count == 0)
+        {
+                std::cout << "Training dictionary must contain at least one word.\n";
+                exit(-1);
+        }
+        else if(key_count < sample_size)
+                std::cout << "There are fewer training entries than "
+                             "random samples to test.\n(Adjust with "
+                             "`const int sample_size`.) Entries will "
+                             "be tested more than once.\n\n";
+
+        return key_count;
+}
+
+// Opens a training dictionary and loads each entry into the Bloom Filter.
+void train(const char* DICTIONARY_FILE, BloomFilter* bloom)
+{
+        std::ifstream dictionary(DICTIONARY_FILE);
         std::string line;
         while(std::getline(dictionary, line))
         {
@@ -435,11 +473,11 @@ void train(const char* dictionary_file, BloomFilter* bloom)
 // Tests a random sample of valid entries, a generated sample of
 // (almost certainly) invalid entries, and random strings for
 // membership using the bloom filter.
-void test(const char* dictionary_file, BloomFilter* bloom, int sample_size)
+void test(const char* DICTIONARY_FILE, BloomFilter* bloom, int sample_size)
 {
         std::string* valid_entries = new std::string[sample_size];
                                         // will contain each sampled entry
-        testValidEntries(dictionary_file,          // training dictionary
+        testValidEntries(DICTIONARY_FILE,          // training dictionary
                          sample_size,              // # of words to test
                          bloom,                    // bloom filter to test
                          valid_entries);           // to populate w/ valid entries
@@ -474,23 +512,30 @@ int main()
         const int sample_size = 100;            // # of words to test using
                                                 // the Bloom Filter.
 
+        int key_count = countKeysAndVerifyDictionaryBigEnough(DICTIONARY_FILE,
+                                                              sample_size);
 
-        int key_count = countWordsInDictionary(DICTIONARY_FILE);
-
+        // Tries varied settings of lenfact:
         // Bit array length shall be lenfact multiples of the dictionary length.
+
         for(int lenfact = 3; lenfact < 8; ++lenfact)
         {
                 int bitarray_length = int(lenfact * key_count);
 
+                // Tries varied settings of hashcount:
                 // Bloom Filter shall use hashcount # of hash functions.
+
                 for(int hashcount = 1;
                     hashcount <= HashMonster::hashFunctionCount;
                     ++hashcount)
                 {
+                        // tells user what settings we're using
+
                         std::cout << "lenfact (m/n) = " << lenfact << std::endl
                                   << "hashcount (k) = " << hashcount << std::endl;
 
-                        // Creates, trains, and tests Bloom Filter
+                        // Creates, trains, and tests Bloom Filter; outputs
+                        // test results to stdout.
 
                         BloomFilter bloom_filter(bitarray_length, hashcount);
                         train(DICTIONARY_FILE, &bloom_filter);
