@@ -213,6 +213,19 @@ std::string RandomLineAccess::getline(int line_number)
         return line;
 }
 
+// True if `value` is in RandomLineAccess's dictionary file. This implementation
+// tests every line in the dictionary (what an awful thing to do!)
+bool RandomLineAccess::query(std::string value)
+{
+        int current_line = 0;
+        while(current_line < getLineCount())
+        {
+                if(getline(current_line) == value)
+                        return true;
+                ++current_line;
+        }
+        return false;
+}
 // Uses rand() to select an ascii character in the range ['A', '~').
 const char randomChar()
 {
@@ -311,32 +324,6 @@ std::string mutateString(std::string input)
         return mutated;
 }
 
-// Creates a new string based for each string in valid_entries based off
-// that string. testInvalidEntries uses mutateString() to ensure that each
-// new string is almost certainly not in the dictionary. The function tests
-// each new string against the Bloom Filter.
-void testInvalidEntries(std::string*    valid_entries,
-                        int             sample_size,
-                        BloomFilter*    bloom)
-{
-        int successes = 0;      // incremented each time the bloom
-                                // filter recognizes the dictionary entry
-
-        for(int i = 0; i < sample_size; ++i)
-        {
-                // mutate sample and test membership
-
-                valid_entries[i] = mutateString(valid_entries[i]);
-
-                if(bloom->query(valid_entries[i]))
-                        successes++;
-        }
-
-        std::cout << "Invalid Entries:\t" << successes << " / " << sample_size
-                  << " tested positive." << std::endl;
-        return;
-}
-
 // Queries random lines in DICTIONARY_FILE. Each line is tested against the
 // Bloom Filter and added to the valid_entries array (which must be created
 // and deleted outside of testValidEntries and will be modified by
@@ -344,13 +331,11 @@ void testInvalidEntries(std::string*    valid_entries,
 // an entry. If for some reason the Bloom Filter does not recognize a training
 // key, the user is notified and an entry at the end of valid_entries is set to
 // "bloom failure".
-void testValidEntries(const char*   DICTIONARY_FILE,
-                      int           sample_size,
-                      BloomFilter*  bloom,
-                      std::string*  valid_entries)
+void testValidEntries(RandomLineAccess*  dictionary,
+                      int                sample_size,
+                      BloomFilter*       bloom,
+                      std::string*       valid_entries)
 {
-        RandomLineAccess dictionary(DICTIONARY_FILE);
-
         int successes = 0;      // incremented each time the bloom
                                 // filter recognizes the dictionary entry 
         int failures = 0;       // incremented when bloom doesn't recognize entry
@@ -360,19 +345,19 @@ void testValidEntries(const char*   DICTIONARY_FILE,
 
         for(int i = 0; i < sample_size; ++i)
         {
-                if(dictionary.getLineCount() == 0)
+                if(dictionary->getLineCount() == 0)
                         throw std::invalid_argument("No Valid Dictionary Entries to Test.");
-                int randint = rand() % dictionary.getLineCount();
+                int randint = rand() % dictionary->getLineCount();
 
                 // test membership
 
-                if(bloom->query(dictionary.getline(randint)))
+                if(bloom->query(dictionary->getline(randint)))
                 {
                         // record success in successes counter & valid_entries
 
-                        valid_entries[successes++] = dictionary.getline(randint);
+                        valid_entries[successes++] = dictionary->getline(randint);
 
-                } 
+                }
                 else
                         failures++;
         }
@@ -396,23 +381,66 @@ void testValidEntries(const char*   DICTIONARY_FILE,
         return;
 }
 
-// Uses randomWord() to generate sample_size # of five character words. Each
-// word is tested for membership in the Bloom Filter.
-void testRandomPermutations(int sample_size, BloomFilter* bloom)
+// Creates a new string based for each string in valid_entries based off
+// that string. testInvalidEntries uses mutateString() to ensure that each
+// new string is almost certainly not in the dictionary. The function tests
+// each new string against the Bloom Filter.
+void testInvalidEntries(RandomLineAccess*   dictionary,
+                        std::string*        valid_entries,
+                        int                 sample_size,
+                        BloomFilter*        bloom)
 {
-        int successes = 0;      // incremented each time the bloom
-                                // filter recognizes the dictionary entry 
-        const int word_length = 5;
-        char test_word[word_length];
+        int successes = 0;        // Incremented each time the bloom
+                                  // filter recognizes the dictionary entry.
+        int false_positives = 0;  // Checked against training dictionary
 
         for(int i = 0; i < sample_size; ++i)
         {
-                if(bloom->query(randomWord(5)))
+                // mutate sample and test membership
+
+                valid_entries[i] = mutateString(valid_entries[i]);
+
+                if(bloom->query(valid_entries[i]))
+                {
                         successes++;
+                        //if(!dictionary->query(valid_entries[i]))
+                        //        false_positives++;    // SLOW
+                }
+        }
+
+        std::cout << "Invalid Entries:\t" << successes << " / " << sample_size
+                  << " tested positive." << std::endl;
+                  //<< " tested positive. (False Positives: " << false_positives
+                  //<< ")" << std::endl;    // SLOW
+        return;
+}
+
+// Uses randomWord() to generate sample_size # of five character words. Each
+// word is tested for membership in the Bloom Filter.
+void testRandomPermutations(RandomLineAccess*   dictionary,
+                            int                 sample_size,
+                            BloomFilter*        bloom)
+{
+        int successes = 0;        // Incremented each time the bloom
+                                  // filter recognizes the dictionary entry.
+        int false_positives = 0;  // Checked against training dictionary.
+
+        std::string random_word;
+        for(int i = 0; i < sample_size; ++i)
+        {
+                random_word = randomWord(5);
+                if(bloom->query(random_word))
+                {
+                        successes++;
+                        //if(!dictionary->query(random_word))   // SLOW
+                        //        false_positives++;
+                }
         }
 
         std::cout << "5 chr random words:\t" << successes << " / "
                   << sample_size << " tested positive." << std::endl;
+                  //<< sample_size << " tested positive. (False Positives: "
+                  //<< false_positives << ")" << std::endl; // SLOW
         return;
 }
 
@@ -435,7 +463,7 @@ int countKeysAndVerifyDictionaryBigEnough(const char* DICTIONARY_FILE,
                              "that you've changed\n`const char DICTIONARY_FILE[]` "
                              "to the appropriate setting in main()).\n\n"
                              "You can create your own training dictionary "
-                             "in a text file with one word per line.\n\n";
+                             "in a text file with one 'word' per line.\n\n";
                 exit(-1);
         }
 
@@ -475,16 +503,19 @@ void train(const char* DICTIONARY_FILE, BloomFilter* bloom)
 // membership using the bloom filter.
 void test(const char* DICTIONARY_FILE, BloomFilter* bloom, int sample_size)
 {
+        RandomLineAccess dictionary(DICTIONARY_FILE);
         std::string* valid_entries = new std::string[sample_size];
-                                        // will contain each sampled entry
-        testValidEntries(DICTIONARY_FILE,          // training dictionary
-                         sample_size,              // # of words to test
-                         bloom,                    // bloom filter to test
-                         valid_entries);           // to populate w/ valid entries
-        testInvalidEntries(valid_entries,          // strings to modify
-                           sample_size,            // length of valid_entries
-                           bloom);                 // bloom filter to test
-        testRandomPermutations(sample_size, bloom);
+                                           // Will contain each sampled entry.
+
+        testValidEntries(&dictionary,
+                         sample_size,      // # of words to test.
+                         bloom,
+                         valid_entries);   // To populate w/ valid entries.
+        testInvalidEntries(&dictionary,
+                           valid_entries,  // Strings to modify.
+                           sample_size,    // Length of valid_entries.
+                           bloom);
+        testRandomPermutations(&dictionary, sample_size, bloom);
 
         delete[] valid_entries;
 }

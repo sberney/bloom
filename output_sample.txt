@@ -1,0 +1,89 @@
+lenfact (m/n) = 3
+hashcount (k) = 1
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	28 / 100 tested positive. (False Positives: 23)
+5 chr random words:	27 / 100 tested positive. (False Positives: 27)
+
+lenfact (m/n) = 3
+hashcount (k) = 2
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	29 / 100 tested positive. (False Positives: 24)
+5 chr random words:	14 / 100 tested positive. (False Positives: 14)
+
+lenfact (m/n) = 3
+hashcount (k) = 3
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	33 / 100 tested positive. (False Positives: 28)
+5 chr random words:	19 / 100 tested positive. (False Positives: 19)
+
+lenfact (m/n) = 4
+hashcount (k) = 1
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	26 / 100 tested positive. (False Positives: 21)
+5 chr random words:	20 / 100 tested positive. (False Positives: 20)
+
+lenfact (m/n) = 4
+hashcount (k) = 2
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	22 / 100 tested positive. (False Positives: 17)
+5 chr random words:	16 / 100 tested positive. (False Positives: 16)
+
+lenfact (m/n) = 4
+hashcount (k) = 3
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	26 / 100 tested positive. (False Positives: 21)
+5 chr random words:	19 / 100 tested positive. (False Positives: 19)
+
+lenfact (m/n) = 5
+hashcount (k) = 1
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	23 / 100 tested positive. (False Positives: 18)
+5 chr random words:	24 / 100 tested positive. (False Positives: 24)
+
+lenfact (m/n) = 5
+hashcount (k) = 2
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	23 / 100 tested positive. (False Positives: 18)
+5 chr random words:	10 / 100 tested positive. (False Positives: 10)
+
+lenfact (m/n) = 5
+hashcount (k) = 3
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	21 / 100 tested positive. (False Positives: 16)
+5 chr random words:	6 / 100 tested positive. (False Positives: 6)
+
+lenfact (m/n) = 6
+hashcount (k) = 1
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	15 / 100 tested positive. (False Positives: 10)
+5 chr random words:	17 / 100 tested positive. (False Positives: 17)
+
+lenfact (m/n) = 6
+hashcount (k) = 2
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	17 / 100 tested positive. (False Positives: 12)
+5 chr random words:	8 / 100 tested positive. (False Positives: 8)
+
+lenfact (m/n) = 6
+hashcount (k) = 3
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	19 / 100 tested positive. (False Positives: 14)
+5 chr random words:	6 / 100 tested positive. (False Positives: 6)
+
+lenfact (m/n) = 7
+hashcount (k) = 1
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	17 / 100 tested positive. (False Positives: 12)
+5 chr random words:	21 / 100 tested positive. (False Positives: 21)
+
+lenfact (m/n) = 7
+hashcount (k) = 2
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	13 / 100 tested positive. (False Positives: 8)
+5 chr random words:	6 / 100 tested positive. (False Positives: 6)
+
+lenfact (m/n) = 7
+hashcount (k) = 3
+Valid Entries:		100 / 100 tested positive.
+Invalid Entries:	11 / 100 tested positive. (False Positives: 6)
+5 chr random words:	5 / 100 tested positive. (False Positives: 5)

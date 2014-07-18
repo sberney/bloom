@@ -63,6 +63,13 @@
  * dictionary do not exceed this limit (which is ridiculously large);
  * you are likely to run out of memory if operating in this regime.
  *
+ ** FUTURE DIRECTIONS
+ * This project needs an enhanced user interface. It needs better data
+ * presentation and a way to change settings without recompiling the program.
+ *
+ * RandomLineAccess::query() needs to be changed to a more efficient solution:
+ * current implementation is a last minute addition.
+ *
  ** ACKNOWLEDGEMENTS FOR ALL THIRD PARTY FUNCTIONS
  * Two functions and a macro from third parties were used in this demonstration:
  * Hash functions djb2 and sdbm (http://www.cse.yorku.ca/~oz/hash.html), as
@@ -107,6 +114,7 @@ const hash MAX_HASH = std::numeric_limits<hash>::max();
 /****** Forward Declarations ******/
 
 class BloomFilter;
+class RandomLineAccess;
 
 // Returns a random ascii character in the range ['A', '~').
 const char randomChar();
@@ -125,20 +133,23 @@ std::string mutateString(std::string input);
 // array will contain "bloom failure".
 //
 // It is the user's responsibility to delete[] valid_entries.
-void testValidEntries(const char*   DICTIONARY_FILE,
-                      int           sample_size,
-                      BloomFilter*  bloom,
-                      std::string*  valid_entries);
+void testValidEntries(RandomLineAccess* dictionary,
+                      int               sample_size,
+                      BloomFilter*      bloom,
+                      std::string*      valid_entries);
 
 // Generates sample_size invalid entries based on input valid_entries.
 // Tests each invalid entry for membership using BloomFilter bloom.
-void testInvalidEntries(std::string*    valid_entries,
-                        int             sample_size,
-                        BloomFilter*    bloom);
+void testInvalidEntries(RandomLineAccess*   dictionary,
+                        std::string*        valid_entries,
+                        int                 sample_size,
+                        BloomFilter*        bloom);
 
 // Generates sample_size # of random five character words. Each entry
 // is tested for membership using BloomFilter bloom.
-void testRandomPermutations(int sample_size, BloomFilter* bloom);
+void testRandomPermutations(RandomLineAccess*   dictionary,
+                            int                 sample_size,
+                            BloomFilter*        bloom);
 
 // Verifies that the user supplied a large enough dictionary and
 // returns the number of entries in it.
@@ -219,6 +230,7 @@ class RandomLineAccess
                                             // prefer getLineCount below.
                 int getLineCount() const;   // accessor for line_count
                 std::string getline(int line_number);  // see class docs
+                bool query(std::string value);  // true if value is in the file
         private:
                 std::ifstream dictionary_file;
                 int line_count;
