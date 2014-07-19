@@ -74,6 +74,7 @@ BloomFilter::BloomFilter(int bitarray_length, int active_hashes_count)
                           << HashMonster::hashFunctionCount
                           << ", the number of hash functions implemented. "
                           << "Using all hash functions instead." << std::endl;
+                active_hashes_count_ = HashMonster::hashFunctionCount;
         }
 
         if(active_hashes_count_ == 0)
