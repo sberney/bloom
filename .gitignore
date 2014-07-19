@@ -1,0 +1,14 @@
+*.*~
+*.pyc
+*.swp
+__pycache__
+*.so
+build
+dist
+*.app
+*.dmg
+*.exe
+.DS_Store
+.ropeproject
+wordlist.txt
+*.suo
