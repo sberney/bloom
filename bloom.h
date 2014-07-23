@@ -33,9 +33,9 @@
  * higher lenfact and hashcount.
  *
  ** COMPILATION NOTES (SEE ALSO: KNOWN BUGS AND COMPILER IDS)
- *  * Compiling using VS2010 works fine (even with line 163, see below.
+ *  * Compiling using VS2010 works fine (even with line 164, see below.
  *  * Compiling from command line (VS2010 sp1) required using /EHsc option and commenting
- *    out line bloom.cpp:163 (after building with VS2010 gui, I could put line 163 back in)
+ *    out line bloom.cpp:164 (after building with VS2010 gui, I could put line 164 back in)
  *  * Compiling with g++, replace #include<functional> with #include<tr1/function>.
  *
  ** KNOWN BUGS
@@ -116,7 +116,7 @@
 #include <cstdlib>      /* rand, srand */
 #include <ctime>        /* time */
 #include <vector>       /* vector<bool> */
-//#include <tr1/functional>   /* hash<std::string>. g++ specific (Win, OS X) */
+#include <tr1/functional>   /* hash<std::string>. g++ specific (Win, OS X) */
 #include <functional>   /* hash<std::string>. VS2010 specific **/
 #include <limits>       /* numeric_limits */
 #include <cmath>        /* floor */
@@ -244,29 +244,39 @@ class BloomFilter
                 DISALLOW_COPY_AND_ASSIGN(BloomFilter);
 };
 
-// RandomLineAccess can retrieve the contents of any line in a text file without
-// keeping the entire file in memory. This implementation keeps an integer in
-// memory for every line in the file. A more memory efficient version would keep
-// a fraction of the lines in memory (a sparse index).
+// RandomLineAccessInterface can retrieve the contents of any line in a text
+// file without keeping the entire file in memory.
 //      Example usage:
 //          RandomLineAccess database("some file");
 //          std::cout << database.getline(27013);
-class RandomLineAccess 
+class RandomLineAccessInterface
 {
         public:
-                RandomLineAccess(const char* DICTIONARY_FILE);
-                ~RandomLineAccess();
-                static int countLines(std::ifstream* file_name);  // scans
-                                            // and counts every line of file:
-                                            // prefer getLineCount below.
-                int getLineCount() const;   // accessor for line_count
-                std::string getline(int line_number);  // see class docs
-                bool query(std::string value);  // true if value is in the file
+                //virtual RandomLineAccessInterface(const char* DICTIONARY_FILE) = 0;
+                virtual ~RandomLineAccessInterface() {}//= 0;
+                virtual std::string getline(int line_number) = 0;  // return contents at line_number
+                virtual bool query(std::string value) = 0;         // true if value is in the file
+                virtual int getLineCount() const = 0;
+                static int countLines(std::ifstream* file_name);
+};
+
+// This implementation of RandomLineAccessInterface keeps an integer in
+// memory for every line in the file. A more memory efficient version would keep
+// a fraction of the lines in memory (a sparse index).
+// The query method
+class DenseLineCache : public virtual RandomLineAccessInterface
+{
+        public:
+                DenseLineCache(const char* DICTIONARY_FILE);
+                virtual ~DenseLineCache();
+                virtual std::string getline(int line_number);  // see class docs
+                virtual bool query(std::string value);  // true if value is in the file
+                virtual int getLineCount() const;   // accessor for line_count
         private:
                 std::ifstream dictionary_file;
                 int line_count;
                 int* binary_position_of_line;  // an index onto dictionary_file
-                DISALLOW_COPY_AND_ASSIGN(RandomLineAccess);
+                DISALLOW_COPY_AND_ASSIGN(DenseLineCache);
 };
 
 #endif

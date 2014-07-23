@@ -119,7 +119,7 @@ bool BloomFilter::query(std::string value)
 // destructor is called. Also allows subsequent use of .getLineCount() to all
 // other methods and functions, but .getLineCount() CANNOT be used in this
 // constructor.
-RandomLineAccess::RandomLineAccess(const char* DICTIONARY_FILE) : dictionary_file(DICTIONARY_FILE)
+DenseLineCache::DenseLineCache(const char* DICTIONARY_FILE) : dictionary_file(DICTIONARY_FILE)
 {
         // Tests whether the file was opened or not. Either terminates (if the
         // file can't be opened) or builds an index to the file's contents.
@@ -157,8 +157,8 @@ RandomLineAccess::RandomLineAccess(const char* DICTIONARY_FILE) : dictionary_fil
 }
 
 // Closes the dictionary and frees up the space formerly allocated to
-// RandomLineAccess's index onto the dictionary.
-RandomLineAccess::~RandomLineAccess()
+// DenseLineCache's index onto the dictionary.
+DenseLineCache::~DenseLineCache()
 {
         dictionary_file.close();
         delete[] binary_position_of_line;
@@ -168,7 +168,7 @@ RandomLineAccess::~RandomLineAccess()
 // Counts lines in any open ifstream [passed by reference] by resetting any
 // bad bits (eofbit, badbit, failbit) and reading through the file line by
 // line. ifstream shall still be usable after countLines finishes with it.
-int RandomLineAccess::countLines(std::ifstream* file_name)
+int RandomLineAccessInterface::countLines(std::ifstream* file_name)
 {
         std::string line;           // std::getline() populates this string
         int loc_line_count = 0;     // increments by one after each getline
@@ -188,18 +188,18 @@ int RandomLineAccess::countLines(std::ifstream* file_name)
         return loc_line_count;
 }
 
-// An accessor for RandomLineAccess's private variable line_count. line_count
+// An accessor for DenseLineCache's private variable line_count. line_count
 // is set by the constructor.
-int RandomLineAccess::getLineCount() const
+int DenseLineCache::getLineCount() const
 {
         return line_count;
 }
 
 // Returns the contents of line number line_number in the file indexed by
-// RandomLineAccess. Seeks to location as stated in index. Resets eofbit only
-// as necessary, which is fine unless another method is added to RandomLineAccess
+// DenseLineCache. Seeks to location as stated in index. Resets eofbit only
+// as necessary, which is fine unless another method is added to DenseLineCache
 // which expects goodbit pre-set.
-std::string RandomLineAccess::getline(int line_number)
+std::string DenseLineCache::getline(int line_number)
 {
         std::string line;       // std::getline() populates this string
 
@@ -214,11 +214,11 @@ std::string RandomLineAccess::getline(int line_number)
         return line;
 }
 
-// True if `value` is in RandomLineAccess's dictionary file. This implementation
+// True if `value` is in DenseLineCache's dictionary file. This implementation
 // tests every line in the dictionary (what an awful thing to do!) A better way
-// is to reimplement RandomLineAccess with a sparse index and associated values
+// is to reimplement DenseLineCache with a sparse index and associated values
 // kept in memory. Then a binary search (if sorted) would be really fast!
-bool RandomLineAccess::query(std::string value)
+bool DenseLineCache::query(std::string value)
 {
         int current_line = 0;
         while(current_line < getLineCount())
@@ -229,6 +229,7 @@ bool RandomLineAccess::query(std::string value)
         }
         return false;
 }
+
 // Uses rand() to select an ascii character in the range ['A', '~').
 const char randomChar()
 {
@@ -336,7 +337,7 @@ std::string mutateString(std::string input)
 // an entry. If for some reason the Bloom Filter does not recognize a training
 // key, the user is notified and an entry at the end of valid_entries is set to
 // "bloom failure".
-void testValidEntries(RandomLineAccess*  dictionary,
+void testValidEntries(RandomLineAccessInterface*  dictionary,
                       int                sample_size,
                       BloomFilter*       bloom,
                       std::string*       valid_entries)
@@ -390,7 +391,7 @@ void testValidEntries(RandomLineAccess*  dictionary,
 // that string. testInvalidEntries uses mutateString() to ensure that each
 // new string is almost certainly not in the dictionary. The function tests
 // each new string against the Bloom Filter.
-void testInvalidEntries(RandomLineAccess*   dictionary,
+void testInvalidEntries(RandomLineAccessInterface*   dictionary,
                         std::string*        valid_entries,
                         int                 sample_size,
                         BloomFilter*        bloom)
@@ -422,7 +423,7 @@ void testInvalidEntries(RandomLineAccess*   dictionary,
 
 // Uses randomWord() to generate sample_size # of five character words. Each
 // word is tested for membership in the Bloom Filter.
-void testRandomPermutations(RandomLineAccess*   dictionary,
+void testRandomPermutations(RandomLineAccessInterface*   dictionary,
                             int                 sample_size,
                             BloomFilter*        bloom)
 {
@@ -475,7 +476,7 @@ int countKeysAndVerifyDictionaryBigEnough(const char* DICTIONARY_FILE,
                 exit(-1);
         }
 
-        int key_count = RandomLineAccess::countLines(&dictionary);
+        int key_count = RandomLineAccessInterface::countLines(&dictionary);
         dictionary.close();
 
         // Notify user if too few words in training dictionary
@@ -511,7 +512,7 @@ void train(const char* DICTIONARY_FILE, BloomFilter* bloom)
 // membership using the bloom filter.
 void test(const char* DICTIONARY_FILE, BloomFilter* bloom, int sample_size)
 {
-        RandomLineAccess dictionary(DICTIONARY_FILE);
+        DenseLineCache dictionary(DICTIONARY_FILE);
         std::string* valid_entries = new std::string[sample_size];
                                            // Will contain each sampled entry.
 
