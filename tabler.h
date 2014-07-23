@@ -3,32 +3,56 @@
 *******************************************************************************/
 
 #include <algorithm>    /* max_element */
+#include <string>       /* std::string */
+#include <vector>       /* std::vector */
+#include <iostream>     /* temporarily, for cout */
+#include "macros.h"
 
 #ifndef TABLER_H_
 #define TABLER_H_
 
 
-class Row;
+template <class T> class Row;
 
 template <class T>
-class Tabler
+class TablerInterface
+{
+        public:
+                virtual ~TablerInterface() {}
+
+                virtual Row<T> add_row(std::string row_key) = 0;
+
+                virtual std::string format() = 0;    // we'll see after the rest is done
+                virtual void print() = 0;
+
+                virtual void set_row_label() = 0;
+                virtual void set_column_label() = 0;
+                virtual void set_column_keys(std::string* keys) = 0;
+                virtual void set_uniform_width(int width = 0) = 0;      // width = 0 => auto pick width
+                virtual void set_formatter(/* functionPointer */) = 0;
+};
+
+
+template <class T>
+class Tabler : public virtual TablerInterface<T>
 {
         public:
                 Tabler();
-                ~Tabler();
+                virtual ~Tabler();
 
-                Row<T> add_row(std::string row_key);
+                virtual Row<T> add_row(std::string row_key);
 
-                void print();
-                //void format();    // we'll see after the rest is done
+                virtual void print();
+                virtual std::string format();    // we'll see after the rest is done
 
-                void set_row_label();
-                void set column_label();
-                void set_column_keys(std::string* keys);
-                void set_uniform_width(int width = 0);      // width = 0 => auto pick width
-                //set_formatter
+                virtual void set_row_label();
+                virtual void set_column_label();
+                virtual void set_column_keys(std::string* keys);
+                virtual void set_uniform_width(int width = 0);      // width = 0 => auto pick width
+                virtual void set_formatter();
         private:
-                friend Row* row_list_;
+                //friend Row<T>* row_list_;
+                Row<T>* row_list_;
 
                 int get_column_width(int column);
                 bool uniform_width_;
@@ -38,7 +62,7 @@ class Tabler
                 std::string row_label_;     // m/n
                 std::string column_label_;  // k
                 std::string* column_keys_;  // k = 1, 2, 3, 4, 5, ...
-                DISALLOW_COPY_AND_ASSIGN();
+                //DISALLOW_COPY_AND_ASSIGN();
 };
 
 
@@ -51,7 +75,7 @@ void Tabler<T>::print()
         //                        1 . . . . .
         //                        2 . . . . .
         //                        m
-
+        return;
 }
 
 template <class T>
@@ -61,7 +85,6 @@ class Row// : protected Tabler<T>
                 Row();
                 ~Row();
                 void add_data(T data);
-        private:
 };
 
 

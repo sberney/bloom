@@ -12,3 +12,4 @@ dist
 .ropeproject
 wordlist.txt
 *.suo
+a.out
