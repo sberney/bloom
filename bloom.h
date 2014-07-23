@@ -48,7 +48,8 @@
  *     reports an incorrect location. When seeking to the saved locations, an offset is
  *     introduced and getline() produces garbage. Every solution I found on the internet
  *     involved opening the file in binary.
- *   * Affects: RandomLineAccess::RandomLineAccess and RandomLineAccess::getline.
+ *   * Affects: RandomLineAccessInterface::RandomLineAccessInterface and
+ *     RandomLineAccessInterface::getline.
  *
  ** ABSTRACT PROGRAM FLOW
  * SETUP
@@ -90,12 +91,12 @@
  *  * test functions can return a table object, which prints afterwards
  *  * can make interactive or create parameters file
  *
- * RandomLineAccess::query() needs to be changed to a more efficient solution:
+ * DenseLineCache::query() needs to be changed to a more efficient solution:
  * current implementation is a last minute addition to check if any mutated
  * entries (testInvalidEntries) are still in the training dictionary.
- *  * can implement binary search if check ordered at RandomLineAccess
+ *  * can implement binary search if check ordered at RandomLineAccessInterface
  *    construction. Would integrate well with a sparse implementation of
- *    RandomLineAccess. Can store sparse values in memory to speed search.
+ *    RandomLineAccessInterface. Can store sparse values in memory to speed search.
  *
  ** ACKNOWLEDGEMENTS FOR ALL THIRD PARTY FUNCTIONS
  * Two functions and a macro from third parties were used in this demonstration:
@@ -138,7 +139,6 @@ const hash MAX_HASH = std::numeric_limits<hash>::max();
 /****** Forward Declarations ******/
 
 class BloomFilter;
-class RandomLineAccess;
 
 // Returns a random ascii character in the range ['A', '~').
 const char randomChar();
@@ -157,21 +157,21 @@ std::string mutateString(std::string input);
 // array will contain "bloom failure".
 //
 // It is the user's responsibility to delete[] valid_entries.
-void testValidEntries(RandomLineAccess* dictionary,
+void testValidEntries(RandomLineAccessInterface* dictionary,
                       int               sample_size,
                       BloomFilter*      bloom,
                       std::string*      valid_entries);
 
 // Generates sample_size invalid entries based on input valid_entries.
 // Tests each invalid entry for membership using BloomFilter bloom.
-void testInvalidEntries(RandomLineAccess*   dictionary,
+void testInvalidEntries(RandomLineAccessInterface*   dictionary,
                         std::string*        valid_entries,
                         int                 sample_size,
                         BloomFilter*        bloom);
 
 // Generates sample_size # of random five character words. Each entry
 // is tested for membership using BloomFilter bloom.
-void testRandomPermutations(RandomLineAccess*   dictionary,
+void testRandomPermutations(RandomLineAccessInterface*   dictionary,
                             int                 sample_size,
                             BloomFilter*        bloom);
 
