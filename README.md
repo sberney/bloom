@@ -1,6 +1,9 @@
 bloom
 =====
 
+This readme file is new, and just contains a hideously formatted version of the comment block in bloom.h.
+For now, just head on over to bloom.h.
+
 Bloom Filter Implementation
 Copyright 2014 Samuel Berney (sam@samuelberney.com)
 
